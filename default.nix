@@ -4,7 +4,7 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = import ./syntax-macros.nix;
+  f = import ./meta-lambda.nix;
 
   haskellPackages = if compiler == "default"
                        then pkgs.haskellPackages
