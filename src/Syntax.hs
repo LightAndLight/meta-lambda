@@ -4,19 +4,20 @@
 {-# language DeriveGeneric #-}
 module Syntax where
 
-import Control.Applicative ((<|>), liftA2, many, some)
+import Control.Applicative ((<|>), liftA2, many, some, empty)
 import Control.Lens.Getter ((^.))
 import Control.Lens.Lens (Lens', lens)
 import Control.Lens.Plated (Plated(..), gplate)
 import Control.Lens.Setter (over)
 import Data.Functor ((<$), ($>))
+import Data.List (foldl')
 import Data.List.NonEmpty (NonEmpty)
 import Data.Semigroup ((<>))
 import Data.String (IsString)
 import GHC.Generics (Generic)
 import Text.Megaparsec
   (MonadParsec, Token, Tokens, ParseError, Parsec, SourcePos(..), unPos,
-   between, parse, sepBy, sepBy1, getPosition)
+   between, parse, sepBy, sepEndBy1, getPosition, try)
 import Text.Megaparsec.Char
   (char, notChar, upperChar, lowerChar, letterChar, spaceChar, newline,
    digitChar, string)
@@ -126,7 +127,7 @@ token :: (MonadParsec e s m, Token s ~ Char) => m a -> m a
 token p = p <* many (char ' ' <|> char '\n')
 
 expr :: (MonadParsec e s m, Token s ~ Char, IsString (Tokens s)) => m (Expr SrcInfo)
-expr = lam <|> token app
+expr = lam <|> case_ <|> token app
   where
     lam = do
       SourcePos f line col <- getPosition
@@ -143,31 +144,31 @@ expr = lam <|> token app
     pattern_ = do
       SourcePos f line col <- getPosition
       let srcInfo = Just $ SrcInfo f (unPos line) (unPos col)
-      WildP srcInfo <$ token (char '_') <|>
-        LitP <$> lit <|>
-        (\tag args -> CtorP tag (length args) srcInfo) <$>
-        some letterChar <*>
-        many (some letterChar)
+      (WildP srcInfo, id) <$ token (char '_') <|>
+        flip (,) id . LitP <$> token lit <|>
+        (\tag args -> (CtorP tag (length args) srcInfo, \x -> foldr (\a b -> abstract a b Nothing) x args)) <$>
+        token (some letterChar) <*>
+        many (token (some letterChar))
 
     branch = do
       SourcePos f line col <- getPosition
-      (\pat rhs -> Branch pat rhs (Just $ SrcInfo f (unPos line) (unPos col))) <$>
+      (\(pat, doAbstract) rhs -> Branch pat (doAbstract rhs) (Just $ SrcInfo f (unPos line) (unPos col))) <$>
         pattern_ <* token (string "->") <*>
-        expr
+        token expr
 
-    branches = NonEmpty.fromList <$> sepBy1 branch (token $ char ';')
+    branches = NonEmpty.fromList <$> sepEndBy1 branch (token $ char ';')
 
     case_ = do
       SourcePos f line col <- getPosition
       (\e bs -> CaseE e bs (Just $ SrcInfo f (unPos line) (unPos col))) <$
         token (string "case") <*>
-        atom <* token (string "of") <*>
-        between (token $ char '{') (token $ char '}') branches
+        token atom <* token (string "of") <*>
+        between (token $ char '{') (char '}') branches
 
     app =
-      makeExprParser
-        atom
-        [[InfixL (some spaceChar $> (\a b -> AppE a b (a ^. exprAnn)))]]
+      foldl' (\b a -> AppE b a (b ^. exprAnn)) <$>
+      atom <*>
+      many (try $ some spaceChar *> atom)
 
     lit = do
       SourcePos f line col <- getPosition
@@ -176,14 +177,16 @@ expr = lam <|> token app
         IntL . read <$> some digitChar) <*>
         pure srcInfo
 
+    keywords = ["case", "of"]
+
     atom = do
       SourcePos name line col <- getPosition
       let srcPos = Just $ SrcInfo name (unPos line) (unPos col)
-      (VarE <$> some letterChar <*> pure srcPos <|>
+      (VarE <$> try (some letterChar >>= \x -> if x `elem` keywords then empty else pure x) <*> pure srcPos <|>
        QuoteE <$ token (char '\'') <*> atom <*> pure srcPos <|>
        UnquoteE <$ token (char '$') <*> atom <*> pure srcPos <|>
        LitE <$> lit) <|>
-        between (char '(') (char ')') expr
+        between (token (char '(')) (char ')') (token expr)
 
 decl :: (MonadParsec e s m, Token s ~ Char, IsString (Tokens s)) => m (Decl SrcInfo)
 decl = do
@@ -270,17 +273,17 @@ initialDataInfo =
   , ("Cons", DataInfo 2)
   ]
 
-initialCtxt :: [(String, Expr a)]
+initialCtxt :: [(String, Value a)]
 initialCtxt =
   [ ( "Var"
-    , LamE
+    , VLam []
         (LamE
            (CtorE "Var" [BoundE 1 Nothing, BoundE 0 Nothing] Nothing)
            Nothing)
         Nothing
     )
   , ( "Lam"
-    , LamE
+    , VLam []
         (LamE
            (LamE
               (CtorE "Lam"
@@ -291,7 +294,7 @@ initialCtxt =
         Nothing
     )
   , ( "App"
-    , LamE
+    , VLam []
         (LamE
            (LamE
               (CtorE "App"
@@ -302,24 +305,24 @@ initialCtxt =
         Nothing
     )
   , ( "String"
-    , LamE
+    , VLam []
         (LamE
            (CtorE "String" [BoundE 1 Nothing, BoundE 0 Nothing] Nothing)
            Nothing)
         Nothing
     )
   , ( "Int"
-    , LamE
+    , VLam []
         (LamE
            (CtorE "Int" [BoundE 1 Nothing, BoundE 0 Nothing] Nothing)
            Nothing)
         Nothing
     )
   , ( "Nil"
-    , CtorE "Nil" [] Nothing
+    , VCtor "Nil" [] Nothing
     )
   , ( "Cons"
-    , LamE
+    , VLam []
         (LamE
            (CtorE "Cons" [BoundE 1 Nothing, BoundE 0 Nothing] Nothing)
            Nothing)
