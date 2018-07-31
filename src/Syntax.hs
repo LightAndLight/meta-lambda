@@ -11,19 +11,16 @@ import Control.Lens.Plated (Plated(..), gplate)
 import Control.Lens.Setter (over)
 import Data.Functor ((<$), ($>))
 import Data.List (foldl')
-import Data.List.NonEmpty (NonEmpty)
 import Data.Semigroup ((<>))
 import Data.String (IsString)
 import GHC.Generics (Generic)
 import Text.Megaparsec
   (MonadParsec, Token, Tokens, ParseError, Parsec, SourcePos(..), unPos,
-   between, parse, sepBy, sepEndBy1, getPosition, try)
+   between, parse, sepBy, sepEndBy, getPosition, try)
 import Text.Megaparsec.Char
   (char, notChar, upperChar, lowerChar, letterChar, spaceChar, newline,
    digitChar, string)
 import Text.Megaparsec.Expr (makeExprParser, Operator(InfixL))
-
-import qualified Data.List.NonEmpty as NonEmpty
 
 data SrcInfo
   = SrcInfo
@@ -55,7 +52,7 @@ data Expr a
   | QuoteE (Expr a) (Maybe a)
   | LitE (Lit a)
   | AppE (Expr a) (Expr a) (Maybe a)
-  | CaseE (Expr a) (NonEmpty (Branch a)) (Maybe a)
+  | CaseE (Expr a) [Branch a] (Maybe a)
   deriving (Eq, Show, Generic)
 
 instance Plated (Expr a) where
@@ -156,7 +153,7 @@ expr = lam <|> case_ <|> token app
         pattern_ <* token (string "->") <*>
         token expr
 
-    branches = NonEmpty.fromList <$> sepEndBy1 branch (token $ char ';')
+    branches = sepEndBy branch (token $ char ';')
 
     case_ = do
       SourcePos f line col <- getPosition
@@ -241,22 +238,39 @@ quoteSrcInfo (SrcInfo name line col) =
     ]
     Nothing
 
+quoteLit :: Lit SrcInfo -> Expr SrcInfo
+quoteLit (StringL s ann) =
+  CtorE "StringL" [LitE (StringL s ann)] Nothing
+quoteLit (IntL i ann) =
+  CtorE "IntL" [LitE (IntL i ann)] Nothing
+
 quote :: Expr SrcInfo -> Expr SrcInfo
 quote = go Nothing
   where
     go (Just n) (BoundE n' a) | n' <= n = BoundE n' a
     go inLambda (VarE s ann) =
-      CtorE "Var" [LitE (StringL s Nothing), quoteMaybe quoteSrcInfo ann] ann
+      CtorE "Var" [LitE (StringL s Nothing), quoteMaybe quoteSrcInfo ann] Nothing
     go inLambda (LamE e ann) =
-      CtorE "Lam" [LamE (go ((+1) <$> inLambda <|> Just 0) e) Nothing, quoteMaybe quoteSrcInfo ann] ann
+      CtorE "Lam" [LamE (go ((+1) <$> inLambda <|> Just 0) e) Nothing, quoteMaybe quoteSrcInfo ann] Nothing
     go inLambda (AppE f x ann) =
-      CtorE "App" [go inLambda f, go inLambda x, quoteMaybe quoteSrcInfo ann] ann
-    go inLambda (LitE (StringL s ann)) =
-      CtorE "String" [LitE (StringL s Nothing), quoteMaybe quoteSrcInfo ann] ann
-    go inLambda (LitE (IntL i ann)) =
-      CtorE "Int" [LitE (IntL i Nothing), quoteMaybe quoteSrcInfo ann] ann
+      CtorE "App" [go inLambda f, go inLambda x, quoteMaybe quoteSrcInfo ann] Nothing
+    go inLambda (LitE l) =
+      CtorE "Lit" [quoteLit l] Nothing
     go inLambda (CtorE n vs ann) =
-      CtorE "Ctor" [LitE (StringL n Nothing), quoteList (go inLambda) vs, quoteMaybe quoteSrcInfo ann] ann
+      CtorE "Ctor" [LitE (StringL n Nothing), quoteList (go inLambda) vs, quoteMaybe quoteSrcInfo ann] Nothing
+    go inLambda (CaseE e bs ann) =
+      CtorE "Case" [quote e, quoteList (quoteBranch inLambda) bs, quoteMaybe quoteSrcInfo ann] Nothing
+      where
+        quoteBranch il (Branch pat rhs ann) =
+          CtorE "Branch" [quotePattern pat, go il rhs, quoteMaybe quoteSrcInfo ann] Nothing
+
+        quotePattern (WildP ann) =
+          CtorE "WildP" [quoteMaybe quoteSrcInfo ann] Nothing
+        quotePattern (LitP l) =
+          CtorE "LitP" [quoteLit l] Nothing
+        quotePattern (CtorP tag nums ann) =
+          CtorE "CtorP" [LitE (StringL tag Nothing), _ nums, quoteMaybe quoteSrcInfo ann] Nothing
+
     go inLambda e = error $ "can't quote: " <> show e
 
 data DataInfo = DataInfo { _arity :: !Int }
