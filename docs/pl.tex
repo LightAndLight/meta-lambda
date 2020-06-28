@@ -48,21 +48,14 @@ $$
 
 $$
 \frac
-  {\texttt{x} \in \Gamma}
-  {\Gamma \vdash_{Q} \; \texttt{x} \; : \; \texttt{A} \; \dashv \; \cdot}
-  \; (boundvar_Q)
-$$
-
-$$
-\frac
-  {\texttt{x} \notin \Gamma}
+  {}
   {\Gamma \vdash_{Q} \; \texttt{x} \; : \; \texttt{A} \; \dashv \; \texttt{x} \; : \; \texttt{A}}
-  \; (freevar_Q)
+  \; (var_Q)
 $$
 
 $$
 \frac
-    {\Gamma, \; \texttt{x} \; : \; \texttt{A} \vdash_{Q} \; \texttt{e} \; : \; \texttt{B} \; \dashv \; \Delta}
+    {\Gamma \vdash_{Q} \; \texttt{e} \; : \; \texttt{B} \; \dashv \; \Delta, \; \texttt{x} \; : \; \texttt{A}}
     {\Gamma \vdash_{Q} \; \lambda \texttt{x.} \texttt{e} \; : \; \texttt{A} \; \rightarrow \; \texttt{B} \; \dashv \; \Delta}
     \; (lam_Q)
 $$
