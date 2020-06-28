@@ -1,0 +1,153 @@
+\documentclass{article}
+\title{meta-lambda}
+\author{Isaac Elliott}
+
+\begin{document}
+\maketitle
+
+\subsection{Typing}
+
+$$
+\frac
+  {\texttt{x} \in \Gamma}
+  {\Gamma \vdash \; \texttt{x} \; : \; \texttt{A} }
+  \; (var)
+$$
+
+$$
+\frac
+  {\Gamma, \; \texttt{x} \; : \; \texttt{A} \vdash \; \texttt{e} \; : \; \texttt{B}}
+  {\Gamma \vdash \; \lambda \texttt{x.} \texttt{e} \; : \; \texttt{A} \; \rightarrow \; \texttt{B}}
+  \; (lam)
+$$
+
+$$
+\frac
+  {
+    \Gamma \vdash \; \texttt{e} \; : \; \texttt{A} \; \rightarrow \; \texttt{B}
+    \; \; \; \;
+    \Gamma \vdash \; \texttt{f} \; : \; \texttt{A}
+  }
+  {\Gamma \vdash \; \texttt{e} \; \texttt{f} \; : \; \texttt{B}}
+  \; (app)
+$$
+
+$$
+\frac
+  {\Gamma \vdash_{Q} \; \texttt{e} \; : \; \texttt{A} \; \dashv \; \Delta}
+  {\Gamma \vdash \; \texttt{\`(e)} \; : \; \texttt{Code} \; \Delta \; \texttt{A}}
+  \; (quote)
+$$
+
+$$
+\frac
+  {\Gamma \vdash \; \texttt{e} \; : \; \texttt{Code} \; \cdot \; \texttt{A}}
+  {\Gamma \vdash \; \texttt{\$} \texttt{e} \; : \; \texttt{A}}
+  \; (splice)
+$$
+
+$$
+\frac
+  {\texttt{x} \in \Gamma}
+  {\Gamma \vdash_{Q} \; \texttt{x} \; : \; \texttt{A} \; \dashv \; \cdot}
+  \; (boundvar_Q)
+$$
+
+$$
+\frac
+  {\texttt{x} \notin \Gamma}
+  {\Gamma \vdash_{Q} \; \texttt{x} \; : \; \texttt{A} \; \dashv \; \texttt{x} \; : \; \texttt{A}}
+  \; (freevar_Q)
+$$
+
+$$
+\frac
+    {\Gamma, \; \texttt{x} \; : \; \texttt{A} \vdash_{Q} \; \texttt{e} \; : \; \texttt{B} \; \dashv \; \Delta}
+    {\Gamma \vdash_{Q} \; \lambda \texttt{x.} \texttt{e} \; : \; \texttt{A} \; \rightarrow \; \texttt{B} \; \dashv \; \Delta}
+    \; (lam_Q)
+$$
+
+$$
+\frac
+    {
+      \Gamma \vdash_{Q} \; \texttt{e} \; : \; \texttt{A} \; \rightarrow \; \texttt{B} \; \dashv \; \Delta
+      \; \; \; \;
+      \Gamma \vdash_{Q} \; \texttt{f} \; : \; \texttt{A} \; \dashv \; \Delta'
+    }
+    {\Gamma \vdash_{Q} \; \texttt{e} \; \texttt{f} \; : \; \texttt{B} \; \dashv \; \texttt{merge}(\Delta, \Delta')}
+    \; (app_Q)
+$$
+
+$$
+\frac
+  {\Gamma \vdash_{Q} \; \texttt{e} \; : \; \texttt{A} \; \dashv \; \Delta}
+  {\Gamma \vdash_{Q} \; \texttt{\`(e)} \; : \; \texttt{Code} \; \Delta \; \texttt{A} \; \dashv \cdot}
+  \; (quote_{Q})
+$$
+
+$$
+\frac
+  {\Gamma \vdash \; \texttt{e} \; : \; \texttt{Code} \; \Delta \; \texttt{A}}
+  {\Gamma \vdash_{Q} \; \texttt{\textasciitilde e} \; : \; \texttt{A} \; \dashv \; \Delta}
+  \; (antiquote_Q)
+$$
+
+\subsection{Semantics}
+
+$$
+\frac{}{\lambda \texttt{x.} \; \texttt{e} \; \; \; \; value}
+$$
+
+$$
+\frac{\texttt{e} \; \; \; value_{Q} }{\texttt{\`(e)} \; \; \; value}
+$$
+
+$$
+\frac{}{\texttt{x} \; \; \; value_{Q}}
+$$
+
+$$
+\frac{\texttt{e} \; \; \; value_{Q} \;\;\;\;\;\; \texttt{f} \;\;\; value_{Q}}{\texttt{e f} \; \; \; value_{Q}}
+$$
+
+$$
+\frac{\texttt{e} \;\;\; value_{Q}}{\lambda \texttt{x.} \; \texttt{e} \; \; \; \; value_{Q}}
+$$
+
+$$
+\frac
+    {\texttt{e} \Downarrow \lambda \texttt{x.} \texttt{e'} \; \; \; \; \texttt{f} \Downarrow \texttt{f'}}
+    {\texttt{e} \; \texttt{f} \Downarrow \texttt{e'}[\texttt{x} := \texttt{f'}]}
+$$
+
+$$
+\frac
+    {\texttt{e} \Downarrow_{Q} \texttt{e'}}
+    {\lambda \texttt{x.} \texttt{e} \Downarrow_{Q} \lambda \texttt{x.} \texttt{e'}}
+$$
+
+$$
+\frac
+    {\texttt{e} \Downarrow_{Q} \texttt{e'} \;\;\;\; \texttt{f} \Downarrow_{Q} \texttt{f'}}
+    {\texttt{e} \; \texttt{f} \Downarrow_{Q} \texttt{e'} \; \texttt{f'}}
+$$
+
+$$
+\frac
+    {\texttt{e} \Downarrow \texttt{\`(e')}}
+    {\texttt{\textasciitilde} \texttt{e} \Downarrow_{Q} \texttt{e'}}
+$$
+
+$$
+\frac
+    {\texttt{e} \Downarrow_{Q} \texttt{e'}}
+    {\texttt{\`(e)} \Downarrow \texttt{\`(e')}}
+$$
+
+$$
+\frac
+    {\texttt{e} \Downarrow \texttt{\`(e')}}
+    {\texttt{\textdollar} \texttt{e} \Downarrow \texttt{e'}}
+$$
+
+\end{document}
