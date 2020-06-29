@@ -34,8 +34,15 @@ $$
 
 $$
 \frac
+  {\Gamma \vdash \; \texttt{e} \; : \; \texttt{A}}
+  {\Gamma \vdash \; \texttt{reify e} \; : \; \texttt{Code} \; \cdot \; \texttt{A}}
+  \; (reify)
+$$
+
+$$
+\frac
   {\Gamma \vdash_{Q} \; \texttt{e} \; : \; \texttt{A} \; \dashv \; \Delta}
-  {\Gamma \vdash \; \texttt{\`(e)} \; : \; \texttt{Code} \; \Delta \; \texttt{A}}
+  {\Gamma \vdash \; \texttt{\textasciigrave e} \; : \; \texttt{Code} \; \Delta \; \texttt{A}}
   \; (quote)
 $$
 
@@ -74,7 +81,7 @@ $$
 $$
 \frac
   {\Gamma \vdash_{Q} \; \texttt{e} \; : \; \texttt{A} \; \dashv \; \Delta}
-  {\Gamma \vdash_{Q} \; \texttt{\`(e)} \; : \; \texttt{Code} \; \Delta \; \texttt{A} \; \dashv \cdot}
+  {\Gamma \vdash_{Q} \; \texttt{\textasciigrave e} \; : \; \texttt{Code} \; \Delta \; \texttt{A} \; \dashv \cdot}
   \; (quote_{Q})
 $$
 
@@ -92,7 +99,11 @@ $$
 $$
 
 $$
-\frac{\texttt{e} \; \; \; value_{Q} }{\texttt{\`(e)} \; \; \; value}
+\frac{\texttt{e} \; \; \; value }{\texttt{reify e} \; \; \; value}
+$$
+
+$$
+\frac{\texttt{e} \; \; \; value_{Q} }{\texttt{\textasciigrave e} \; \; \; value}
 $$
 
 $$
@@ -115,6 +126,12 @@ $$
 
 $$
 \frac
+    {\texttt{e} \Downarrow \texttt{e'}}
+    {\texttt{reify e} \Downarrow \texttt{reify e'}}
+$$
+
+$$
+\frac
     {\texttt{e} \Downarrow_{Q} \texttt{e'}}
     {\lambda \texttt{x.} \texttt{e} \Downarrow_{Q} \lambda \texttt{x.} \texttt{e'}}
 $$
@@ -127,19 +144,25 @@ $$
 
 $$
 \frac
-    {\texttt{e} \Downarrow \texttt{\`(e')}}
+    {\texttt{e} \Downarrow \texttt{reify e'}}
+    {\texttt{\textasciitilde} \texttt{e} \Downarrow_{Q} \texttt{e'}}
+$$
+
+$$
+\frac
+    {\texttt{e} \Downarrow \texttt{\textasciigrave e'}}
     {\texttt{\textasciitilde} \texttt{e} \Downarrow_{Q} \texttt{e'}}
 $$
 
 $$
 \frac
     {\texttt{e} \Downarrow_{Q} \texttt{e'}}
-    {\texttt{\`(e)} \Downarrow \texttt{\`(e')}}
+    {\texttt{\textasciigrave e} \Downarrow \texttt{\textasciigrave e'}}
 $$
 
 $$
 \frac
-    {\texttt{e} \Downarrow \texttt{\`(e')}}
+    {\texttt{e} \Downarrow \texttt{\textasciigrave e'}}
     {\texttt{\textdollar} \texttt{e} \Downarrow \texttt{e'}}
 $$
 
